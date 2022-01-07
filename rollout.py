@@ -1,5 +1,5 @@
 import torch
-from pyjssp.simulators import Simulator
+from semiMDP.simulators import Simulator
 import random
 import numpy
 import time
