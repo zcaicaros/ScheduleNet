@@ -20,3 +20,9 @@ while True:
 
 print(sim.global_time)
 print(time.time() - t1)'''
+
+
+random.seed(0)
+numpy.random.seed(1)
+torch.manual_seed(1)
+sim = Simulator(3, 3, verbose=False)
