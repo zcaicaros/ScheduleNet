@@ -25,4 +25,7 @@ print(time.time() - t1)'''
 random.seed(0)
 numpy.random.seed(1)
 torch.manual_seed(1)
-sim = Simulator(3, 3, verbose=False)
+sim = Simulator(3, 3, verbose=False, detach_done=True)
+g, r, done = sim.observe()
+print(g.number_of_edges())
+sim.plot_graph()
