@@ -91,6 +91,7 @@ class NodeProcessingTimeMachineManager(MachineManager):
                  job_manager,
                  delay=True,
                  verbose=False):
+        super().__init__(machine_matrix, job_manager)
 
         machine_matrix = machine_matrix.astype(int)
 
