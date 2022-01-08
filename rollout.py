@@ -73,14 +73,14 @@ if __name__ == "__main__":
         # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
         _, t, _ = rollout(s, dev, verbose=False)
-    times = []
+    '''times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
         dev = 'cuda' if torch.cuda.is_available() else 'cpu'
         # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False)
         _, t, _ = rollout(s, dev)
-        times.append(t)
+        times.append(t)'''
 
     # print(times)
 

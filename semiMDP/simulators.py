@@ -7,11 +7,9 @@ import networkx as nx
 
 from semiMDP.jobShopSamplers import jssp_sampling
 from semiMDP.operationHelpers import (JobManager,
-                                      NodeProcessingTimeJobManager,
                                       get_edge_color_map,
                                       get_node_color_map)
-from semiMDP.machineHelpers import (MachineManager,
-                                    NodeProcessingTimeMachineManager)
+from semiMDP.machineHelpers import (MachineManager)
 from semiMDP.configs import (N_SEP, SEP, NEW)
 
 
@@ -198,22 +196,22 @@ class Simulator:
         elif reward == 'idle_time':
             r = -float(len(self.machine_manager.get_idle_machines()))/float(self.num_machine)
 
-        g = self.job_manager.observe(detach_done=self.detach_done)
+        g_operations = self.job_manager.observe(detach_done=self.detach_done)
 
         if return_doable:
             if self.use_surrogate_index:
                 do_ops_list = self.get_doable_ops(return_list=True)
-                for n in g.nodes:
+                for n in g_operations.nodes:
                     if n in do_ops_list:
                         job_id, op_id = self.job_manager.sur_index_dict[n]
                         m_id = self.job_manager[job_id][op_id].machine_id
-                        g.nodes[n]['doable'] = True
-                        g.nodes[n]['machine'] = m_id
+                        g_operations.nodes[n]['doable'] = True
+                        g_operations.nodes[n]['machine'] = m_id
                     else:
-                        g.nodes[n]['doable'] = False
-                        g.nodes[n]['machine'] = 0
+                        g_operations.nodes[n]['doable'] = False
+                        g_operations.nodes[n]['machine'] = 0
 
-        return g, r, done
+        return g_operations, r, done
 
     def plot_graph(self, draw=True,
                    node_type_color_dict=None,
@@ -340,17 +338,3 @@ class Simulator:
                    machine_matrix=ms,
                    processing_time_matrix=prts,
                    **kwargs)
-
-
-class NodeProcessingTimeSimulator(Simulator):
-
-    def reset(self):
-        self.job_manager = NodeProcessingTimeJobManager(self.machine_matrix,
-                                                        self.processing_time_matrix,
-                                                        embedding_dim=self.embedding_dim,
-                                                        use_surrogate_index=self.use_surrogate_index)
-        self.machine_manager = NodeProcessingTimeMachineManager(self.machine_matrix,
-                                                                self.job_manager,
-                                                                self.delay,
-                                                                self.verbose)
-        self.global_time = 0  # -1 matters a lot
