@@ -86,7 +86,7 @@ class JobManager:
         # Constructing conjunctive edges
         for job_i, (m, pr_t) in enumerate(zip(machine_matrix, processing_time_matrix)):
             m = m + 1  # To make machine index starts from 1
-            self.jobs[job_i] = Job(job_i, m, pr_t, embedding_dim)
+            self.jobs[job_i] = Job(job_i, m, pr_t, embedding_dim)  # connection happens by class initializing
 
         # Constructing disjunctive edges
         machine_index = list(set(machine_matrix.flatten().tolist()))
@@ -235,7 +235,8 @@ class Job:
         self.ops = list()
         self.processing_time = np.sum(processing_time_order)
         self.num_sequence = processing_time_order.size
-        # Connecting backward paths (add prev_op to operations)
+
+        # initialize operations
         cum_pr_t = 0
         for step_id, (m_id, pr_t) in enumerate(zip(machine_order, processing_time_order)):
             cum_pr_t += pr_t
@@ -245,6 +246,8 @@ class Job:
                            complete_ratio=cum_pr_t/self.processing_time,
                            job=self)
             self.ops.append(op)
+
+        # Connecting backward paths (add prev_op to operations)
         for i, op in enumerate(self.ops[1:]):
             op.prev_op = self.ops[i]
 
@@ -386,19 +389,12 @@ class Operation:
         if not_start_cond:
             _x = OrderedDict()
             _x['id'] = self._id
-            _x["agent"] = 0
-            _x["target-agent"] = 0
-            _x["assigned"] = 0
-            _x["waiting"] = 0
-            _x["processable"] = 1
-
             _x["type"] = self.node_status
             _x["complete_ratio"] = self.complete_ratio
             _x['processing_time'] = self.processing_time
             _x['remaining_ops'] = self.remaining_ops
             _x['waiting_time'] = self.waiting_time
             _x["remain_time"] = -1
-
         elif processing_cond:
             _x = OrderedDict()
             _x['id'] = self._id
@@ -422,3 +418,7 @@ class Operation:
         else:
             raise RuntimeError("Not supporting node type")
         return _x
+
+
+if __name__ == "__main__":
+    pass
