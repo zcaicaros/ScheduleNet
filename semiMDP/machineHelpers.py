@@ -4,6 +4,7 @@ import numpy as np
 from semiMDP.configs import (PROCESSING_NODE_SIG,
                              DONE_NODE_SIG,
                              DELAYED_NODE_SIG)
+import networkx as nx
 
 
 class MachineManager:
@@ -38,6 +39,7 @@ class MachineManager:
     def __getitem__(self, index):
         return self.machines[index]
 
+    # available: have remaining ops, idle, and not waiting for delayed op, i.e. those can be assigned
     def get_available_machines(self, shuffle_machine=True):
         m_list = []
         for _, m in self.machines.items():
@@ -81,6 +83,28 @@ class MachineManager:
         all_machines_not_available_cond = not self.get_available_machines()
         all_machines_delayed_cond = self.all_delayed()
         return all_machines_not_available_cond and all_machines_delayed_cond
+
+    def observe(self):
+        """
+        generate agent graph
+        :return: nx.OrderedDiGraph
+        """
+        target_agents = self.get_available_machines()  # target agents are those available
+        g = nx.DiGraph()
+        for m_id, m in self.machines.items():  # add node
+            _x = OrderedDict()
+            _x['agent'] = 1
+            _x['target_agent'] = 1 if m_id in target_agents else 0
+            _x['assigned'] = 1 - _x['target_agent']
+            _x['waiting'] = int(m.wait_for_delayed())
+            _x['processable'] = 0
+            _x['accessible'] = 0
+            _x['task_wait_time'] = m.prev_op.remaining_time
+            _x['task_processing_time'] = -1 if m.current_op is None else m.current_op.processing_time
+            _x['time_to_complete'] = 0
+            g.add_node(m_id, **_x)
+            print(m.remaining_time)
+
 
 
 class Machine:
@@ -182,8 +206,8 @@ class Machine:
             raise RuntimeError("Machine {} is not available".format(self.machine_id))
 
         # ignore when input op's previous op is not done yet:
-        if not op.processible():
-            raise RuntimeError("Operation {} is not processible yet".format(print(op)))
+        if not op.processable():
+            raise RuntimeError("Operation {} is not accessible yet".format(print(op)))
 
         if op not in self.possible_ops:
             raise RuntimeError("Machine {} can't perform ops {}{}".format(self.machine_id,
@@ -248,7 +272,7 @@ class Machine:
 
     def transit(self, t, a):
         if self.available():  # Machine is ready to process.
-            if a.processible():  # selected action is ready to be loaded right now.
+            if a.processable():  # selected action is ready to be loaded right now.
                 self.load_op(t, a)
             else:  # When input operation turns out to be 'delayed'
                 a.node_status = DELAYED_NODE_SIG
@@ -260,3 +284,17 @@ class Machine:
                     print("[DELAYED OP CHOSEN] : / Machine  {} / Op {}/ t = {} ".format(self.machine_id, self.delayed_op, t))
         else:
             raise RuntimeError("Access to not available machine")
+
+
+if __name__ == "__main__":
+    from semiMDP.jobShopSamplers import jssp_sampling
+    from operationHelpers import JobManager
+
+    random.seed(0)
+    np.random.seed(1)
+
+    ms, prts = jssp_sampling(3, 3)
+    job_manager = JobManager(ms, prts, use_surrogate_index=True)
+    machine_manager = MachineManager(ms, job_manager, delay=True, verbose=False)
+
+    machine_manager.observe()

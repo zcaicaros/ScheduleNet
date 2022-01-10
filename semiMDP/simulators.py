@@ -247,9 +247,8 @@ class Simulator:
                 pos_dict[n] = np.array((xidx2coord(n[1]), yidx2coord(n[0])))
         
         if kwargs is None:
-            kwargs['figsize'] = (10, 5)
-            kwargs['dpi'] = 300
-        
+            kwargs = {'figsize': (10, 5), 'dpi': 300}
+
         fig = plt.figure(**kwargs)
         ax = fig.add_subplot(1, 1, 1)
 
