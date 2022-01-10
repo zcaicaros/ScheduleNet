@@ -208,6 +208,7 @@ class JobManager:
                 if not isinstance(op, DummyOperation):
                     temp = OrderedDict()
                     temp['Task'] = "Machine" + str(op.machine_id)
+                    print(op.start_time)
                     temp['Start'] = op.start_time
                     temp['Finish'] = op.end_time
                     temp['Resource'] = "Job" + str(op.job_id)

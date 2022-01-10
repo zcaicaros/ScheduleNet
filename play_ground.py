@@ -29,3 +29,5 @@ sim = Simulator(3, 3, verbose=False, detach_done=True)
 g, r, done = sim.observe()
 print(g.number_of_edges())
 sim.plot_graph()
+
+print({1:2, 3:4}.items())

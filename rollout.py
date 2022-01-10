@@ -73,6 +73,7 @@ if __name__ == "__main__":
         # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
         _, t, _ = rollout(s, dev, verbose=False)
+        # s.draw_gantt_chart('./gantt_chart.html', 'rnd', max_x=s.global_time+5)
     '''times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))

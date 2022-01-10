@@ -10,7 +10,7 @@ class MachineManager:
     def __init__(self,
                  machine_matrix,
                  job_manager,
-                 delay=True,
+                 delay=True,  # True: prev op is processing, next op is processable
                  verbose=False):
 
         machine_matrix = machine_matrix.astype(int)
@@ -61,7 +61,7 @@ class MachineManager:
     def cal_total_cost(self):
         c = 0
         for _, m in self.machines.items():
-            c += len(m.doable_ops_no_delay)
+            c += len(m.doable_ops_no_delay)  # number of ready operations of m
         return c
 
     # update all cost functions of machines
