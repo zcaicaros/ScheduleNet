@@ -99,12 +99,17 @@ class MachineManager:
             _x['waiting'] = int(m.wait_for_delayed())
             _x['processable'] = 0
             _x['accessible'] = 0
-            _x['task_wait_time'] = m.prev_op.remaining_time
-            _x['task_processing_time'] = -1 if m.current_op is None else m.current_op.processing_time
-            _x['time_to_complete'] = 0
+            _x['task_wait_time'] = -1
+            _x['task_processing_time'] = -1
+            _x['time_to_complete'] = -1
+            _x['remain_ops'] = -1
+            _x['job_completion_ratio'] = -1
+            _x['node_type'] = 'assigned_agent' if _x['assigned'] == 1 else 'unassigned_agent'
             g.add_node(m_id, **_x)
-            print(m.remaining_time)
-
+            for neighbour_machine in self.machines.keys():  # fully connect to other machines
+                if neighbour_machine != m_id:
+                    g.add_edge(m_id, neighbour_machine, weight=0)  # 0 = not processable by the source node
+        return g
 
 
 class Machine:
