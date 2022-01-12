@@ -7,6 +7,8 @@ import time
 
 def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbose=True):
 
+    # print(s.machine_matrix)
+
     if embedding_net is not None and \
             policy_net is not None and \
             critic_net is not None:

@@ -26,3 +26,27 @@ def count_parameters(model, verbose=False, print_model=False):
     print('The model has {} parameters'.format(pytorch_total_params))
 
 
+def to_pyg(g, dev):
+    for n in g.nodes:
+        print(n, g.nodes[n])
+    machine_clique = g.subgraph([0, 1, 2, 3])
+    print(machine_clique.edges)
+    pass
+
+
+if __name__ == '__main__':
+    random.seed(0)
+    np.random.seed(1)
+    torch.manual_seed(1)
+
+    dev = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # dev = 'cpu'
+
+    s = Simulator(3, 3, verbose=False)
+    print(s.machine_matrix)
+    print(s.processing_time_matrix)
+    s.reset()
+
+    g, r, done = s.observe()
+
+    to_pyg(g, dev)
