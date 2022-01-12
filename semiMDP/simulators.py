@@ -195,6 +195,8 @@ class Simulator:
             
         elif reward == 'idle_time':
             r = -float(len(self.machine_manager.get_idle_machines()))/float(self.num_machine)
+        else:
+            raise RuntimeError("Not support reward type")
 
         g = self.machine_manager.observe(detach_done=self.detach_done)
 

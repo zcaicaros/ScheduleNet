@@ -193,8 +193,9 @@ class MachineManager:
                         g.add_edge(op.machine_id - 1, node_id, type=machine_to_task_arc_feature)  # agent node -> task node
                         # job clique out degrees for this op
                         for op_con in op.conjunctive_ops:
-                            node_id_op_con = op_con.id + num_machine
-                            g.add_edge(node_id, node_id_op_con, type=0)
+                            if op_con.node_status != DONE_NODE_SIG:
+                                node_id_op_con = op_con.id + num_machine
+                                g.add_edge(node_id, node_id_op_con, type=0)
                 else:
                     node_id = op.id + num_machine  # task node iterate from num_machine + i
                     g.add_node(node_id, **_x_task)
