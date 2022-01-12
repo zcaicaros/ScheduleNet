@@ -1,9 +1,12 @@
 import random
 from collections import OrderedDict
 import numpy as np
-from semiMDP.configs import (PROCESSING_NODE_SIG,
-                             DONE_NODE_SIG,
-                             DELAYED_NODE_SIG)
+from semiMDP.configs import (
+    NOT_START_NODE_SIG,
+    PROCESSING_NODE_SIG,
+    DONE_NODE_SIG,
+    DELAYED_NODE_SIG
+)
 import networkx as nx
 
 
@@ -15,6 +18,7 @@ class MachineManager:
                  verbose=False):
 
         machine_matrix = machine_matrix.astype(int)
+        self.job_manager = job_manager
 
         # Parse machine indices
         machine_index = list(set(machine_matrix.flatten().tolist()))
@@ -84,32 +88,124 @@ class MachineManager:
         all_machines_delayed_cond = self.all_delayed()
         return all_machines_not_available_cond and all_machines_delayed_cond
 
-    def observe(self):
+    def observe(self, detach_done=True):
         """
         generate graph representation
         :return: nx.OrderedDiGraph
         """
-        target_agents = self.get_available_machines()  # target agents are those available
+
+        num_machine = len(self.machines)
+
+        # create agents clique
+        target_agents = self.get_available_machines()  # target agents are those idle and non-waiting
         g = nx.DiGraph()
         for m_id, m in self.machines.items():  # add node
-            _x = OrderedDict()
-            _x['node_type'] = 'assigned_agent' if _x['assigned'] == 1 else 'unassigned_agent'
-            _x['agent'] = 1
-            _x['target_agent'] = 1 if m_id in target_agents else 0
-            _x['assigned'] = 1 - _x['target_agent']
-            _x['waiting'] = int(m.wait_for_delayed())
-            _x['processable'] = 0
-            _x['accessible'] = 0
-            # operation node features = -1 for machine node
-            _x['task_wait_time'] = -1
-            _x['task_processing_time'] = -1
-            _x['time_to_complete'] = -1
-            _x['remain_ops'] = -1
-            _x['job_completion_ratio'] = -1
-            g.add_node(m_id, **_x)
+            _x_machine = OrderedDict()
+            _x_machine['agent'] = 1
+            _x_machine['target_agent'] = 1 if m in target_agents else 0
+            _x_machine['assigned'] = 1 - _x_machine['target_agent']
+            _x_machine['waiting'] = int(m.wait_for_delayed())
+            _x_machine['processable'] = 0  # flag for operation node
+            _x_machine['accessible'] = 0  # flag for operation node
+            # features = -1 for machine node
+            _x_machine['task_wait_time'] = -1
+            _x_machine['task_processing_time'] = -1
+            _x_machine['time_to_complete'] = -1
+            _x_machine['remain_ops'] = -1
+            _x_machine['job_completion_ratio'] = -1
+            # node type
+            _x_machine['node_type'] = 'assigned_agent' if _x_machine['assigned'] == 1 else 'unassigned_agent'
+            g.add_node(m_id - 1, **_x_machine)  # machine id from 0
             for neighbour_machine in self.machines.keys():  # fully connect to other machines
                 if neighbour_machine != m_id:
-                    g.add_edge(m_id, neighbour_machine, weight=0)  # 0 = not processable by the source node
+                    g.add_edge(m_id - 1, neighbour_machine - 1, type=0)  # 0 = not processable by the source node
+
+        # create task subgraph
+        for job_id, job in self.job_manager.jobs.items():
+            for op in job.ops:
+                not_start_cond = (op.node_status == NOT_START_NODE_SIG)
+                delayed_cond = (op.node_status == DELAYED_NODE_SIG)
+                processing_cond = (op.node_status == PROCESSING_NODE_SIG)
+                done_cond = (op.node_status == DONE_NODE_SIG)
+
+                if not_start_cond:
+                    _x_task = OrderedDict()
+                    _x_task['id'] = op._id
+                    _x_task["type"] = op.node_status
+                    _x_task["complete_ratio"] = op.complete_ratio
+                    _x_task['processing_time'] = op.processing_time
+                    _x_task['remaining_ops'] = op.remaining_ops
+                    _x_task['waiting_time'] = op.waiting_time
+                    _x_task["remain_time"] = -1
+                    # ScheduleNet feature
+                    _x_task["agent"] = 0
+                    _x_task["target_agent"] = 0
+                    _x_task["assigned"] = 0  # not_start_cond = op not load, i.e. not assigned
+                    _x_task["waiting"] = 0
+                    processable = int(op in self.machines[op.machine_id].doable_ops() and self.machines[op.machine_id] in target_agents)
+                    _x_task["processable"] = processable
+                    _x_task["accessible"] = processable * int(self.machines[op.machine_id].status())
+                elif processing_cond:
+                    _x_task = OrderedDict()
+                    _x_task['id'] = op._id
+                    _x_task["type"] = op.node_status
+                    _x_task["complete_ratio"] = op.complete_ratio
+                    _x_task['processing_time'] = op.processing_time
+                    _x_task['remaining_ops'] = op.remaining_ops
+                    _x_task['waiting_time'] = 0
+                    _x_task["remain_time"] = op.remaining_time
+                    # ScheduleNet feature
+                    _x_task["agent"] = 0
+                    _x_task["target_agent"] = 0
+                    _x_task["assigned"] = 1
+                    _x_task["waiting"] = 0
+                    _x_task["processable"] = 0
+                    _x_task["accessible"] = 0
+                elif done_cond:
+                    _x_task = OrderedDict()
+                    _x_task['id'] = op._id
+                    _x_task["type"] = op.node_status
+                    _x_task["complete_ratio"] = op.complete_ratio
+                    _x_task['processing_time'] = op.processing_time
+                    _x_task['remaining_ops'] = op.remaining_ops
+                    _x_task['waiting_time'] = 0
+                    _x_task["remain_time"] = -1
+                    # ScheduleNet feature
+                    _x_task["agent"] = 0
+                    _x_task["target_agent"] = 0
+                    _x_task["assigned"] = 1
+                    _x_task["waiting"] = 0
+                    _x_task["processable"] = 0
+                    _x_task["accessible"] = 0
+                elif delayed_cond:
+                    raise NotImplementedError("delayed operation")
+                else:
+                    raise RuntimeError("Not supporting node type")
+
+                done_cond = _x_task["type"] == DONE_NODE_SIG
+
+                if detach_done:
+                    if not done_cond:
+                        node_id = op.id + num_machine  # task node iterate from num_machine + i
+                        g.add_node(node_id, **_x_task)
+                        g.add_edge(node_id, op.machine_id - 1, type=0)  # task node -> agent node
+                        machine_to_task_arc_feature = int(op in self.machines[op.machine_id].doable_ops())
+                        g.add_edge(op.machine_id - 1, node_id, type=machine_to_task_arc_feature)  # agent node -> task node
+                        # job clique out degrees for this op
+                        for op_con in op.conjunctive_ops:
+                            node_id_op_con = op_con.id + num_machine
+                            g.add_edge(node_id, node_id_op_con, type=0)
+                else:
+                    node_id = op.id + num_machine  # task node iterate from num_machine + i
+                    g.add_node(node_id, **_x_task)
+                    g.add_edge(node_id, op.machine_id - 1, type=0)  # task node -> agent node
+                    machine_to_task_arc_feature = int(op in self.machines[op.machine_id].doable_ops())
+                    g.add_edge(op.machine_id - 1, node_id, type=machine_to_task_arc_feature)  # agent node -> task node
+                    # job clique out degrees for this op
+                    for op_con in op.conjunctive_ops:
+                        node_id_op_con = op_con.id + num_machine
+                        g.add_edge(node_id, node_id_op_con, type=0)
+
         return g
 
 
@@ -130,6 +226,12 @@ class Machine:
 
     def __str__(self):
         return "Machine {}".format(self.machine_id)
+
+    def status(self):
+        currently_not_processing_cond = self.current_op is None
+        not_wait_for_delayed_cond = not self.wait_for_delayed()
+        status = currently_not_processing_cond and not_wait_for_delayed_cond
+        return status
 
     def available(self):
         future_work_exist_cond = bool(self.doable_ops())
@@ -303,4 +405,6 @@ if __name__ == "__main__":
     job_manager = JobManager(ms, prts, use_surrogate_index=True)
     machine_manager = MachineManager(ms, job_manager, delay=True, verbose=False)
 
-    machine_manager.observe()
+    g = machine_manager.observe()
+    for n in g.nodes:
+        print(n, g.nodes[n])

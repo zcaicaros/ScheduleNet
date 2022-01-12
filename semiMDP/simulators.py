@@ -196,22 +196,22 @@ class Simulator:
         elif reward == 'idle_time':
             r = -float(len(self.machine_manager.get_idle_machines()))/float(self.num_machine)
 
-        g_operations = self.job_manager.observe(detach_done=self.detach_done)
+        g = self.machine_manager.observe(detach_done=self.detach_done)
 
         if return_doable:
             if self.use_surrogate_index:
-                do_ops_list = self.get_doable_ops(return_list=True)
-                for n in g_operations.nodes:
+                do_ops_list = [doable_op + self.num_machine for doable_op in self.get_doable_ops(return_list=True)]
+                for n in g.nodes:
                     if n in do_ops_list:
-                        job_id, op_id = self.job_manager.sur_index_dict[n]
+                        job_id, op_id = self.job_manager.sur_index_dict[n - self.num_machine]
                         m_id = self.job_manager[job_id][op_id].machine_id
-                        g_operations.nodes[n]['doable'] = True
-                        g_operations.nodes[n]['machine'] = m_id
+                        g.nodes[n]['doable'] = True
+                        g.nodes[n]['machine'] = m_id
                     else:
-                        g_operations.nodes[n]['doable'] = False
-                        g_operations.nodes[n]['machine'] = 0
+                        g.nodes[n]['doable'] = False
+                        g.nodes[n]['machine'] = 0
 
-        return g_operations, r, done
+        return g, r, done
 
     def draw_gantt_chart(self, path, benchmark_name, max_x):
         # Draw a gantt chart

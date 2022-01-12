@@ -166,6 +166,14 @@ class Job:
                            job=self)
             self.ops.append(op)
 
+        # constructing job clique
+        for op in self.ops:
+            neighbour_ops = []
+            for neighbour_op in self.ops:
+                if op.id != neighbour_op.id:
+                    neighbour_ops.append(neighbour_op)
+            op.conjunctive_ops = neighbour_ops
+
         # Connecting backward paths (add prev_op to operations)
         for i, op in enumerate(self.ops[1:]):
             op.prev_op = self.ops[i]
@@ -232,7 +240,8 @@ class Operation:
                  processing_time,
                  job,
                  next_op=None,
-                 disjunctive_ops=None):
+                 disjunctive_ops=None,
+                 conjunctive_ops=None):
 
         self.job_id = job_id
         self.step_id = step_id
@@ -249,6 +258,7 @@ class Operation:
         self.waiting_time = 0
         self._next_op = next_op
         self._disjunctive_ops = disjunctive_ops
+        self._conjunctive_ops = conjunctive_ops
 
         self.next_op_built = False
         self.disjunctive_built = False
@@ -286,6 +296,17 @@ class Operation:
         self.disjunctive_built = True
         if self.disjunctive_built and self.next_op_built:
             self.built = True
+
+    @property
+    def conjunctive_ops(self):
+        return self._conjunctive_ops
+
+    @conjunctive_ops.setter
+    def conjunctive_ops(self, con_ops):
+        for ops in con_ops:
+            if not isinstance(ops, Operation):
+                raise RuntimeError("Given {} is not Operation instance".format(ops))
+        self._conjunctive_ops = con_ops
 
     @property
     def next_op(self):
