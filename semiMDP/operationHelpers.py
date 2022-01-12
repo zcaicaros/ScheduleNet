@@ -120,87 +120,6 @@ class JobManager:
     def __getitem__(self, index):
         return self.jobs[index]
 
-    def observe(self, detach_done=True):
-        """
-        :return: Current time stamp job-shop graph
-        """
-        
-        g = nx.OrderedDiGraph()
-        for job_id, job in self.jobs.items():
-            for op in job.ops:
-                not_start_cond = not (op == job.ops[0])
-                not_end_cond = not (op == job.ops[-1])
-
-                done_cond = op.x['type'] == DONE_NODE_SIG
-
-                if detach_done:
-                    if not done_cond:
-                        g.add_node(op.id, **op.x)
-                        if not_end_cond:  # Construct forward flow conjunctive edges only
-                            g.add_edge(op.id, op.next_op.id,
-                                       processing_time=op.processing_time,
-                                       type=CONJUNCTIVE_TYPE,
-                                       direction=FORWARD)
-
-                        if not_start_cond:
-                            if op.prev_op.x['type'] != DONE_NODE_SIG:
-                                g.add_edge(op.id, op.prev_op.id,
-                                           processing_time=-1 * op.prev_op.processing_time,
-                                           type=CONJUNCTIVE_TYPE,
-                                           direction=BACKWARD)
-
-                        for disj_op in op.disjunctive_ops:
-                            if disj_op.x['type'] != DONE_NODE_SIG:
-                                g.add_edge(op.id, disj_op.id, type=DISJUNCTIVE_TYPE)
-
-                else:
-                    g.add_node(op.id, **op.x)
-                    if not_end_cond:  # Construct forward flow conjunctive edges only
-                        g.add_edge(op.id, op.next_op.id,
-                                   processing_time=op.processing_time,
-                                   type=CONJUNCTIVE_TYPE,
-                                   direction=FORWARD)
-
-                    if not_start_cond:
-                        g.add_edge(op.id, op.prev_op.id,
-                                   processing_time=-1 * op.prev_op.processing_time,
-                                   type=CONJUNCTIVE_TYPE,
-                                   direction=BACKWARD)
-
-                    for disj_op in op.disjunctive_ops:
-                        g.add_edge(op.id, disj_op.id, type=DISJUNCTIVE_TYPE)
-
-        return g
-
-    def plot_graph(self, draw=True,
-                   node_type_color_dict=None,
-                   edge_type_color_dict=None,
-                   half_width=None,
-                   half_height=None,
-                   **kwargs):
-
-        g = self.observe()
-        node_colors = get_node_color_map(g, node_type_color_dict)
-        edge_colors = get_edge_color_map(g, edge_type_color_dict)
-        pos = calc_positions(g, half_width, half_height)
-
-        if kwargs is None:
-            kwargs = {'figsize': (10, 5),
-                      'dpi': 300}
-
-        fig = plt.figure(**kwargs)
-        ax = fig.add_subplot(1, 1, 1)
-
-        nx.draw(g, pos,
-                node_color=node_colors,
-                edge_color=edge_colors,
-                with_labels=True,
-                ax=ax)
-        if draw:
-            plt.show()
-        else:
-            return fig, ax
-
     def draw_gantt_chart(self, path, benchmark_name, max_x):
         gantt_info = []
         for _, job in self.jobs.items():
@@ -378,46 +297,6 @@ class Operation:
         self.next_op_built = True
         if self.disjunctive_built and self.next_op_built:
             self.built = True
-
-    @property
-    def x(self):  # return node attribute
-        not_start_cond = (self.node_status == NOT_START_NODE_SIG)
-        delayed_cond = (self.node_status == DELAYED_NODE_SIG)
-        processing_cond = (self.node_status == PROCESSING_NODE_SIG)
-        done_cond = (self.node_status == DONE_NODE_SIG)
-
-        if not_start_cond:
-            _x = OrderedDict()
-            _x['id'] = self._id
-            _x["type"] = self.node_status
-            _x["complete_ratio"] = self.complete_ratio
-            _x['processing_time'] = self.processing_time
-            _x['remaining_ops'] = self.remaining_ops
-            _x['waiting_time'] = self.waiting_time
-            _x["remain_time"] = -1
-        elif processing_cond:
-            _x = OrderedDict()
-            _x['id'] = self._id
-            _x["type"] = self.node_status
-            _x["complete_ratio"] = self.complete_ratio
-            _x['processing_time'] = self.processing_time
-            _x['remaining_ops'] = self.remaining_ops
-            _x['waiting_time'] = 0
-            _x["remain_time"] = self.remaining_time
-        elif done_cond:
-            _x = OrderedDict()
-            _x['id'] = self._id
-            _x["type"] = self.node_status
-            _x["complete_ratio"] = self.complete_ratio
-            _x['processing_time'] = self.processing_time
-            _x['remaining_ops'] = self.remaining_ops
-            _x['waiting_time'] = 0
-            _x["remain_time"] = -1
-        elif delayed_cond:
-            raise NotImplementedError("delayed operation")
-        else:
-            raise RuntimeError("Not supporting node type")
-        return _x
 
 
 if __name__ == "__main__":

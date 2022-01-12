@@ -86,25 +86,26 @@ class MachineManager:
 
     def observe(self):
         """
-        generate agent graph
+        generate graph representation
         :return: nx.OrderedDiGraph
         """
         target_agents = self.get_available_machines()  # target agents are those available
         g = nx.DiGraph()
         for m_id, m in self.machines.items():  # add node
             _x = OrderedDict()
+            _x['node_type'] = 'assigned_agent' if _x['assigned'] == 1 else 'unassigned_agent'
             _x['agent'] = 1
             _x['target_agent'] = 1 if m_id in target_agents else 0
             _x['assigned'] = 1 - _x['target_agent']
             _x['waiting'] = int(m.wait_for_delayed())
             _x['processable'] = 0
             _x['accessible'] = 0
+            # operation node features = -1 for machine node
             _x['task_wait_time'] = -1
             _x['task_processing_time'] = -1
             _x['time_to_complete'] = -1
             _x['remain_ops'] = -1
             _x['job_completion_ratio'] = -1
-            _x['node_type'] = 'assigned_agent' if _x['assigned'] == 1 else 'unassigned_agent'
             g.add_node(m_id, **_x)
             for neighbour_machine in self.machines.keys():  # fully connect to other machines
                 if neighbour_machine != m_id:

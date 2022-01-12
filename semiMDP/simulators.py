@@ -213,55 +213,6 @@ class Simulator:
 
         return g_operations, r, done
 
-    def plot_graph(self, draw=True,
-                   node_type_color_dict=None,
-                   edge_type_color_dict=None,
-                   half_width=None,
-                   half_height=None,
-                   **kwargs):
-        
-        g = self.job_manager.observe(self.detach_done)
-        node_colors = get_node_color_map(g, node_type_color_dict)
-        edge_colors = get_edge_color_map(g, edge_type_color_dict)
-        
-        if half_width is None:
-            half_width = 30
-        if half_height is None:
-            half_height = 10
-        
-        num_horizontals = self.num_steps + 1
-        num_verticals = self.num_jobs + 1 
-        
-        def xidx2coord(x):
-            return np.linspace(-half_width, half_width, num_horizontals)[x]
-
-        def yidx2coord(y):
-            return np.linspace(half_height, -half_height, num_verticals)[y]
-        
-        pos_dict = OrderedDict()
-        for n in g.nodes:
-            if self.use_surrogate_index:
-                y, x = self.job_manager.sur_index_dict[n]
-                pos_dict[n] = np.array((xidx2coord(x), yidx2coord(y)))
-            else:
-                pos_dict[n] = np.array((xidx2coord(n[1]), yidx2coord(n[0])))
-        
-        if kwargs is None:
-            kwargs = {'figsize': (10, 5), 'dpi': 300}
-
-        fig = plt.figure(**kwargs)
-        ax = fig.add_subplot(1, 1, 1)
-
-        nx.draw(g, pos_dict,
-                node_color=node_colors,
-                edge_color=edge_colors,
-                with_labels=True,
-                ax=ax)
-        if draw:
-            plt.show()
-        else:
-            return fig, ax
-
     def draw_gantt_chart(self, path, benchmark_name, max_x):
         # Draw a gantt chart
         self.job_manager.draw_gantt_chart(path, benchmark_name, max_x)

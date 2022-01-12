@@ -31,12 +31,6 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
-            print(g.number_of_edges())
-            for job_id, job in s.job_manager.jobs.items():
-                for op in job.ops:
-                    done_cond = op.x['type'] == 1
-                    print(op, done_cond)
-            s.plot_graph()
             if embedding_net is not None and \
                     policy_net is not None and \
                     critic_net is not None:  # network forward goes here
