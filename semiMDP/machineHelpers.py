@@ -97,13 +97,13 @@ class MachineManager:
         num_machine = len(self.machines)
 
         # create agents clique
-        target_agents = self.get_available_machines()  # target agents are those idle and non-waiting
+        target_agents = self.get_available_machines(shuffle_machine=False)  # target agents are those idle and non-waiting
         g = nx.DiGraph()
         for m_id, m in self.machines.items():  # add node
             _x_machine = OrderedDict()
             _x_machine['agent'] = 1
             _x_machine['target_agent'] = 1 if m in target_agents else 0
-            _x_machine['assigned'] = 1 - _x_machine['target_agent']
+            _x_machine['assigned'] = 1 - int(m.current_op is None)
             _x_machine['waiting'] = int(m.wait_for_delayed())
             _x_machine['processable'] = 0  # flag for operation node
             _x_machine['accessible'] = 0  # flag for operation node
@@ -145,6 +145,7 @@ class MachineManager:
                     processable = int(op in self.machines[op.machine_id].doable_ops() and self.machines[op.machine_id] in target_agents)
                     _x_task["processable"] = processable
                     _x_task["accessible"] = processable * int(self.machines[op.machine_id].status())
+                    _x_task['node_type'] = 'processable_task' if processable == 1 else 'unprocessable_task'
                 elif processing_cond:
                     _x_task = OrderedDict()
                     _x_task['id'] = op._id
@@ -161,6 +162,7 @@ class MachineManager:
                     _x_task["waiting"] = 0
                     _x_task["processable"] = 0
                     _x_task["accessible"] = 0
+                    _x_task['node_type'] = 'assigned_task'
                 elif done_cond:
                     _x_task = OrderedDict()
                     _x_task['id'] = op._id
@@ -177,6 +179,7 @@ class MachineManager:
                     _x_task["waiting"] = 0
                     _x_task["processable"] = 0
                     _x_task["accessible"] = 0
+                    _x_task['node_type'] = 'completed_task'
                 elif delayed_cond:
                     raise NotImplementedError("delayed operation")
                 else:

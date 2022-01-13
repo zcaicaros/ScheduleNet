@@ -27,10 +27,31 @@ def count_parameters(model, verbose=False, print_model=False):
 
 
 def to_pyg(g, dev):
+    assigned_agents = []
+    unassigned_agents = []
+    assigned_tasks = []
+    processable_tasks = []
+    unprocessable_tasks = []
+    # aggregate node according to node type
     for n in g.nodes:
-        print(n, g.nodes[n])
-    machine_clique = g.subgraph([0, 1, 2, 3])
-    print(machine_clique.edges)
+        if g.nodes[n]['node_type'] == 'assigned_agent':
+            assigned_agents.append(n)
+        if g.nodes[n]['node_type'] == 'unassigned_agent':
+            unassigned_agents.append(n)
+        if g.nodes[n]['node_type'] == 'assigned_task':
+            assigned_tasks.append(n)
+        if g.nodes[n]['node_type'] == 'processable_task':
+            processable_tasks.append(n)
+        if g.nodes[n]['node_type'] == 'unprocessable_task':
+            unprocessable_tasks.append(n)
+        # print(n, g.nodes[n])
+
+    assigned_agents_induced_g = g.subgraph(assigned_agents)
+    unassigned_agents_induced_g = g.subgraph(unassigned_agents)
+    assigned_tasks_induced_g = g.subgraph(assigned_tasks)
+    processable_tasks_induced_g = g.subgraph(processable_tasks)
+    unprocessable_tasks_induced_g = g.subgraph(unprocessable_tasks)
+    
     pass
 
 
