@@ -3,6 +3,7 @@ from semiMDP.simulators import Simulator
 import random
 import numpy
 import time
+from model import to_pyg
 
 
 def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbose=True):
@@ -33,6 +34,7 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
+            to_pyg(g, dev)
             if embedding_net is not None and \
                     policy_net is not None and \
                     critic_net is not None:  # network forward goes here
@@ -64,7 +66,7 @@ if __name__ == "__main__":
     j = [30]
 
     print('Warm start...')
-    for p_m, p_j in zip([3], [3]):  # select problem size
+    for p_m, p_j in zip([10], [10]):  # select problem size
         dev = 'cuda' if torch.cuda.is_available() else 'cpu'
         # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
