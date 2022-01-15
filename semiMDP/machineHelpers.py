@@ -118,7 +118,7 @@ class MachineManager:
             g.add_node(m_id - 1, **_x_machine)  # machine id from 0
             for neighbour_machine in self.machines.keys():  # fully connect to other machines
                 if neighbour_machine != m_id:
-                    g.add_edge(m_id - 1, neighbour_machine - 1, edge_type=0)  # 0 = not processable by the source node
+                    g.add_edge(m_id - 1, neighbour_machine - 1, edge_feature=[0])  # edge_feature = not processable by the source node
 
         # create task subgraph
         for job_id, job in self.job_manager.jobs.items():
@@ -191,24 +191,24 @@ class MachineManager:
                 g.add_node(node_id, **_x_task, task_done=done_cond)
                 if detach_done:
                     if not done_cond:
-                        g.add_edge(node_id, op.machine_id - 1, edge_type=0)  # task node -> agent node
+                        g.add_edge(node_id, op.machine_id - 1, edge_feature=[0])  # task node -> agent node
                         machine_to_task_arc_feature = int(op in self.machines[op.machine_id].doable_ops())
-                        g.add_edge(op.machine_id - 1, node_id, edge_type=machine_to_task_arc_feature)  # agent node -> task node
+                        g.add_edge(op.machine_id - 1, node_id, edge_feature=[machine_to_task_arc_feature])  # agent node -> task node
                         # out degrees for this op in job clique
                         for op_con in op.conjunctive_ops:
                             if op_con.node_status != DONE_NODE_SIG:
                                 node_id_op_con = op_con.id + num_machine
-                                g.add_edge(node_id, node_id_op_con, type=0)
+                                g.add_edge(node_id, node_id_op_con, edge_feature=[0])
                 else:
                     node_id = op.id + num_machine  # task node iterate from num_machine + i
                     g.add_node(node_id, **_x_task)
-                    g.add_edge(node_id, op.machine_id - 1, edge_type=0)  # task node -> agent node
+                    g.add_edge(node_id, op.machine_id - 1, edge_feature=[0])  # task node -> agent node
                     machine_to_task_arc_feature = int(op in self.machines[op.machine_id].doable_ops())
-                    g.add_edge(op.machine_id - 1, node_id, edge_type=machine_to_task_arc_feature)  # agent node -> task node
+                    g.add_edge(op.machine_id - 1, node_id, edge_feature=[machine_to_task_arc_feature])  # agent node -> task node
                     # out degrees for this op in job clique
                     for op_con in op.conjunctive_ops:
                         node_id_op_con = op_con.id + num_machine
-                        g.add_edge(node_id, node_id_op_con, type=0)
+                        g.add_edge(node_id, node_id_op_con, edge_feature=[0])
 
         return g
 

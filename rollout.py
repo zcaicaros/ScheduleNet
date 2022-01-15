@@ -3,7 +3,7 @@ from semiMDP.simulators import Simulator
 import random
 import numpy
 import time
-from model import to_pyg
+from model import nx_to_pyg
 
 
 def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbose=True):
@@ -34,7 +34,7 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
-            to_pyg(g, dev)
+            nx_to_pyg(g, dev)
             if embedding_net is not None and \
                     policy_net is not None and \
                     critic_net is not None:  # network forward goes here
