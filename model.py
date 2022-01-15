@@ -12,11 +12,10 @@ from torch_geometric.nn.inits import reset
 from torch.distributions.categorical import Categorical
 
 
-def one_hotter(arr):
+def one_hotter(arr, n_values=6):
     """
     arr: [n,] ndarray
     """
-    n_values = np.max(arr) + 1
     return np.eye(n_values, dtype=np.float32)[arr]
 
 
@@ -70,6 +69,7 @@ def nx_to_pyg(g, dev):
 
     node_feature_all = np.array(node_feature_all, dtype=np.float32)
     k_all = one_hotter(np.array(k_all)).reshape(g.number_of_nodes(), -1)
+    print(k_all)
 
     adj_assigned_agent = np.zeros([g.number_of_nodes(), g.number_of_nodes()], dtype=np.float32)
     adj_unassigned_agent = np.zeros([g.number_of_nodes(), g.number_of_nodes()], dtype=np.float32)
@@ -150,6 +150,101 @@ def nx_to_pyg(g, dev):
     return pyg_assigned_agent, pyg_unassigned_agent, pyg_assigned_task, pyg_processable_task, pyg_unprocessable_task, pyg_finished_task
 
 
+class MLP(torch.nn.Module):
+    def __init__(self,
+                 num_layers=2,
+                 in_chnl=8,
+                 hidden_chnl=256,
+                 out_chnl=8):
+        super(MLP, self).__init__()
+
+        self.layers = torch.nn.ModuleList()
+
+        for l in range(num_layers):
+            if l == 0:  # first layer
+                self.layers.append(torch.nn.Linear(in_chnl, hidden_chnl))
+                self.layers.append(torch.nn.ReLU())
+                if num_layers == 1:
+                    self.layers.append(torch.nn.Linear(hidden_chnl, out_chnl))
+            elif l <= num_layers - 2:  # hidden layers
+                self.layers.append(torch.nn.Linear(hidden_chnl, hidden_chnl))
+                self.layers.append(torch.nn.ReLU())
+            else:  # last layer
+                self.layers.append(torch.nn.Linear(hidden_chnl, hidden_chnl))
+                self.layers.append(torch.nn.ReLU())
+                self.layers.append(torch.nn.Linear(hidden_chnl, out_chnl))
+
+    def forward(self, h):
+        for lyr in self.layers:
+            h = lyr(h)
+        return h
+
+
+class MI(torch.nn.Module):
+    def __init__(self, ctx_size, input_size, output_size):
+        super(MI, self).__init__()
+
+        self.W = torch.nn.Linear(ctx_size, input_size * output_size)
+        self.b = torch.nn.Linear(ctx_size, output_size)
+
+    def forward(self, x, z):
+        """
+        :param x: [B, input size]
+        :param z: [B, context size]
+        :return: y: [B, output_size]
+        """
+        W_prime = self.W(z).reshape(x.shape[0], x.shape[1], -1)
+        b_prime = self.b(z)
+        y = torch.matmul(x.unsqueeze(1), W_prime).squeeze() + b_prime
+
+        return y
+
+
+class TGAe_layer(MessagePassing):
+    def __init__(self,
+                 etype_mlp_layer=1,
+                 edge_mlp_layer=1,
+                 etype_mlp_in_chnl=6,
+                 edge_mlp_in_chnl=1,
+                 node_feature_num=11,
+                 edge_feature_num=1,
+                 etype_mlp_hidden_chnl=32,
+                 edge_mlp_hidden_chnl=32,
+                 etype_mlp_out_chnl=32,
+                 edge_mlp_out_chnl=32):
+        super(TGAe_layer, self).__init__()
+
+        self.etype_mlp = MLP(
+            num_layers=etype_mlp_layer,
+            in_chnl=etype_mlp_in_chnl,
+            hidden_chnl=etype_mlp_hidden_chnl,
+            out_chnl=etype_mlp_out_chnl
+        )
+
+        self.edge_mlp = MLP(
+            num_layers=edge_mlp_layer,
+            in_chnl=edge_mlp_in_chnl,
+            hidden_chnl=edge_mlp_hidden_chnl,
+            out_chnl=edge_mlp_out_chnl
+        )
+
+        self.MI = MI(
+            ctx_size=etype_mlp_out_chnl,
+            input_size=node_feature_num * 2 + edge_feature_num,
+            output_size=32
+        )
+
+    def forward(self, **graphs):
+        for name, graph in graphs.items():
+            if graph.num_edges != 0:
+                kj = graph.x[graph.edge_index[0]][:, :6]
+                hi = graph.x[graph.edge_index[1]][:, 6:]
+                hj = graph.x[graph.edge_index[0]][:, 6:]
+                hij = graph.edge_attr
+                cij = self.etype_mlp(kj)
+                uij = self.MI(x=torch.cat([hi, hj, hij], dim=1), z=cij)
+
+
 if __name__ == '__main__':
     random.seed(0)
     np.random.seed(1)
@@ -165,4 +260,21 @@ if __name__ == '__main__':
 
     g, r, done = s.observe()
 
-    nx_to_pyg(g, dev)
+    pyg_assigned_agent, pyg_unassigned_agent, pyg_assigned_task, pyg_processable_task, pyg_unprocessable_task, pyg_finished_task = nx_to_pyg(g, dev)
+
+    ctx = torch.rand(size=[3, 2])
+    x = torch.rand(size=[3, 4])
+    mi = MI(ctx_size=ctx.shape[1], input_size=x.shape[1], output_size=16)
+    y = mi(x, ctx)
+    # print(y.shape)
+
+    tgae = TGAe_layer().to(dev)
+    input_graphs = {
+        'pyg_assigned_agent': pyg_assigned_agent,
+        'pyg_unassigned_agent': pyg_unassigned_agent,
+        'pyg_assigned_task': pyg_assigned_task,
+        'pyg_processable_task': pyg_processable_task,
+        'pyg_unprocessable_task': pyg_unprocessable_task,
+        'pyg_finished_task': pyg_finished_task
+    }
+    tgae(**input_graphs)
