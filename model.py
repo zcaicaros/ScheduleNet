@@ -6,10 +6,23 @@ import networkx as nx
 from torch.nn.functional import relu, softmax
 from torch import Tensor
 from torch_geometric.data import Data
-from torch_geometric.utils import subgraph
+from torch_geometric.utils import softmax as pyg_softmax
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.inits import reset
 from torch.distributions.categorical import Categorical
+from typing import Union, Tuple, Optional
+from torch_geometric.typing import (OptPairTensor, Adj, Size, NoneType,
+                                    OptTensor)
+
+import torch
+from torch import Tensor
+import torch.nn.functional as F
+from torch.nn import Parameter
+from torch_sparse import SparseTensor, set_diag
+from torch_geometric.nn.dense.linear import Linear
+from torch_geometric.nn.conv import MessagePassing
+from torch_geometric.utils import remove_self_loops, add_self_loops, softmax
+
 
 
 def one_hotter(arr, n_values=6):
@@ -69,7 +82,6 @@ def nx_to_pyg(g, dev):
 
     node_feature_all = np.array(node_feature_all, dtype=np.float32)
     k_all = one_hotter(np.array(k_all)).reshape(g.number_of_nodes(), -1)
-    print(k_all)
 
     adj_assigned_agent = np.zeros([g.number_of_nodes(), g.number_of_nodes()], dtype=np.float32)
     adj_unassigned_agent = np.zeros([g.number_of_nodes(), g.number_of_nodes()], dtype=np.float32)
@@ -200,19 +212,25 @@ class MI(torch.nn.Module):
         return y
 
 
-class TGAe_layer(MessagePassing):
-    def __init__(self,
-                 etype_mlp_layer=1,
-                 edge_mlp_layer=1,
-                 etype_mlp_in_chnl=6,
-                 edge_mlp_in_chnl=1,
-                 node_feature_num=11,
-                 edge_feature_num=1,
-                 etype_mlp_hidden_chnl=32,
-                 edge_mlp_hidden_chnl=32,
-                 etype_mlp_out_chnl=32,
-                 edge_mlp_out_chnl=32):
-        super(TGAe_layer, self).__init__()
+class TGA_layer(MessagePassing):
+    def __init__(
+            self,
+            etype_mlp_layer=1,
+            edge_mlp_layer=2,
+            attn_mlp_layer=2,
+            etype_mlp_in_chnl=6,
+            edge_mlp_in_chnl=32,
+            attn_mlp_in_chnl=32,
+            etype_mlp_hidden_chnl=32,
+            edge_mlp_hidden_chnl=32,
+            attn_mlp_hidden_chnl=32,
+            etype_mlp_out_chnl=32,
+            edge_mlp_out_chnl=32,
+            attn_mlp_our_chnl=1,
+            node_feature_num=11,
+            edge_feature_num=1
+    ):
+        super(TGA_layer, self).__init__(node_dim=0, aggr='add')
 
         self.etype_mlp = MLP(
             num_layers=etype_mlp_layer,
@@ -234,15 +252,49 @@ class TGAe_layer(MessagePassing):
             output_size=32
         )
 
+        self.attn_mlp = MLP(
+            num_layers=attn_mlp_layer,
+            in_chnl=attn_mlp_in_chnl,
+            hidden_chnl=attn_mlp_hidden_chnl,
+            out_chnl=attn_mlp_our_chnl
+        )
+
+    def message(
+            self,
+            x_j: Tensor,
+            x_i: Tensor,
+            edge_attr: OptTensor,
+            index: Tensor,
+            ptr: OptTensor,
+            size_i: Optional[int]
+    ) -> Tensor:
+
+        k_i, k_j = x_i[:, :6], x_j[:, :6]
+        h_i, h_j = x_i[:, 6:], x_j[:, 6:]
+
+        c_j = self.etype_mlp(k_j)
+        u_j = self.MI(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
+
+        h_j_prime = self.edge_mlp(u_j)
+        z_j = self.attn_mlp(u_j).squeeze()
+        alpha_j = softmax(z_j, index, ptr, size_i)
+        return h_j_prime * alpha_j.unsqueeze(-1)
+
     def forward(self, **graphs):
+        embeddings = []
         for name, graph in graphs.items():
             if graph.num_edges != 0:
-                kj = graph.x[graph.edge_index[0]][:, :6]
-                hi = graph.x[graph.edge_index[1]][:, 6:]
-                hj = graph.x[graph.edge_index[0]][:, 6:]
-                hij = graph.edge_attr
-                cij = self.etype_mlp(kj)
-                uij = self.MI(x=torch.cat([hi, hj, hij], dim=1), z=cij)
+                # nodes with no neighbourhood get embedding = 0
+                embedding = self.propagate(edge_index=graph.edge_index, x=graph.x, edge_attr=graph.edge_attr)
+                embeddings.append(embedding)
+        merged_by_sum = torch.stack(embeddings).sum(dim=0)
+
+        new_graphs = {}
+        for name, graph in graphs.items():
+            new_graphs[name] = Data(x=merged_by_sum, edge_index=graph.edge_index).to(graph.x.device)
+
+        return new_graphs
+
 
 
 if __name__ == '__main__':
@@ -250,8 +302,8 @@ if __name__ == '__main__':
     np.random.seed(1)
     torch.manual_seed(1)
 
-    dev = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # dev = 'cpu'
+    # dev = 'cuda' if torch.cuda.is_available() else 'cpu'
+    dev = 'cpu'
 
     s = Simulator(3, 3, verbose=False)
     print(s.machine_matrix)
@@ -268,7 +320,7 @@ if __name__ == '__main__':
     y = mi(x, ctx)
     # print(y.shape)
 
-    tgae = TGAe_layer().to(dev)
+    tgae = TGA_layer().to(dev)
     input_graphs = {
         'pyg_assigned_agent': pyg_assigned_agent,
         'pyg_unassigned_agent': pyg_unassigned_agent,
