@@ -248,6 +248,8 @@ class TGA_layer(MessagePassing):
     ):
         super(TGA_layer, self).__init__(node_dim=0, aggr='add')
 
+        self.edge_h_updated = []
+
         self.etype_mlp = MLP(
             num_layers=etype_mlp_layer,
             in_chnl=etype_mlp_in_chnl,
@@ -312,6 +314,7 @@ class TGA_layer(MessagePassing):
         u_j = self.mi_edge(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
 
         h_j_prime = self.edge_mlp(u_j)
+        self.edge_h_updated.append(h_j_prime)
         z_j = self.attn_mlp(u_j).squeeze()
         alpha_j = pyg_softmax(z_j, index, ptr, size_i)
         return h_j_prime * alpha_j.unsqueeze(-1)
@@ -323,6 +326,8 @@ class TGA_layer(MessagePassing):
                 # nodes with no neighbourhood get embedding = 0
                 embedding = self.propagate(edge_index=graph.edge_index, x=graph.x, edge_attr=graph.edge_attr)
                 embeddings.append(embedding)
+            else:
+                self.edge_h_updated.append(None)
         node_h_merged_by_sum = torch.stack(embeddings).sum(dim=0)
 
         x_i = graphs['pyg_assigned_agent'].x  # any graph will do
@@ -335,9 +340,12 @@ class TGA_layer(MessagePassing):
         # grad = torch.autograd.grad(h_i_prime.mean(), [param for param in self.parameters()])
 
         new_graphs = {}
-        for name, graph in graphs.items():
+        for i, (name, graph) in enumerate(graphs.items()):
             x_new_graph = torch.cat([graph.x[:, :6], h_i_prime], dim=1)
-            new_graphs[name] = Data(x=x_new_graph, edge_index=graph.edge_index, edge_attr=graph.edge_attr).to(graph.x.device)
+            if graph.num_edges != 0:  # type k has edges
+                new_graphs[name] = Data(x=x_new_graph, edge_index=graph.edge_index, edge_attr=self.edge_h_updated[i]).to(graph.x.device)
+            else:
+                new_graphs[name] = Data(x=x_new_graph, edge_index=graph.edge_index, edge_attr=graph.edge_attr).to(graph.x.device)
 
         return new_graphs
 
@@ -347,13 +355,20 @@ class TGA(torch.nn.Module):
         super(TGA, self).__init__()
 
         self.l1 = TGA_layer()
-        self.l2 = TGA_layer( node_feature_num=32)
+        self.l2 = TGA_layer(node_feature_num=32, edge_feature_num=32)
 
     def forward(self, **graphs):
         graphs = self.l1(**graphs)
         graphs = self.l2(**graphs)
         h_node = list(graphs.values())[0].x[:, 6:]  # any graph will do
         return h_node
+
+
+class Policy(torch.nn.Module):
+    def __init__(self):
+        super(Policy, self).__init__()
+
+        self.mlp = None
 
 
 if __name__ == '__main__':
@@ -377,7 +392,6 @@ if __name__ == '__main__':
     x = torch.rand(size=[3, 4])
     mi = MI(ctx_size=ctx.shape[1], input_size=x.shape[1], output_size=16)
     y = mi(x, ctx)
-    # print(y.shape)
 
     tgae_l1 = TGA_layer().to(dev)
     input_graphs = {
@@ -393,7 +407,9 @@ if __name__ == '__main__':
 
     tgae_l2 = TGA_layer(
         node_feature_num=32,
+        edge_feature_num=32,
     ).to(dev)
+    # print(list(out_graphs.values())[0].edge_attr)
     out_graphs = tgae_l2(**out_graphs)
     # print(out_graphs)
 
