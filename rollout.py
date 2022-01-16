@@ -34,6 +34,7 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
+            feasible_op_id = [op_id + s.num_machine for op_id in s.get_doable_ops_in_list()]
             nx_to_pyg(g, dev)
             if embedding_net is not None and \
                     policy_net is not None and \
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     j = [30]
 
     print('Warm start...')
-    for p_m, p_j in zip([10], [10]):  # select problem size
+    for p_m, p_j in zip([3], [3]):  # select problem size
         dev = 'cuda' if torch.cuda.is_available() else 'cpu'
         # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)

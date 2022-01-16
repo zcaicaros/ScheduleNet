@@ -2,27 +2,15 @@ from semiMDP.simulators import Simulator
 import torch
 import random
 import numpy as np
-import networkx as nx
 from torch.nn.functional import relu, softmax
 from torch import Tensor
 from torch_geometric.data import Data
-from torch_geometric.utils import softmax as pyg_softmax
 from torch_geometric.nn.conv import MessagePassing
+from torch_geometric.utils import softmax as pyg_softmax
 from torch_geometric.nn.inits import reset
 from torch.distributions.categorical import Categorical
-from typing import Union, Tuple, Optional
-from torch_geometric.typing import (OptPairTensor, Adj, Size, NoneType,
-                                    OptTensor)
-
-import torch
-from torch import Tensor
-import torch.nn.functional as F
-from torch.nn import Parameter
-from torch_sparse import SparseTensor, set_diag
-from torch_geometric.nn.dense.linear import Linear
-from torch_geometric.nn.conv import MessagePassing
-from torch_geometric.utils import remove_self_loops, add_self_loops, softmax
-
+from typing import Optional
+from torch_geometric.typing import OptTensor
 
 
 def one_hotter(arr, n_values=6):
@@ -221,11 +209,11 @@ class TGA_layer(MessagePassing):
             edge_feature_num=1,
             ## mlps parameters
             # layer
-            etype_mlp_layer=1,
-            edge_mlp_layer=2,
-            attn_mlp_layer=2,
-            ntype_mlp_layer=1,
-            node_mlp_layer=2,
+            etype_mlp_layer=1 + 1,
+            edge_mlp_layer=2 + 1,
+            attn_mlp_layer=2 + 1,
+            ntype_mlp_layer=1 + 1,
+            node_mlp_layer=2 + 1,
             # in dim
             etype_mlp_in_chnl=6,
             edge_mlp_in_chnl=32,
@@ -297,6 +285,17 @@ class TGA_layer(MessagePassing):
             out_chnl=attn_mlp_our_chnl
         )
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        reset(self.etype_mlp)
+        reset(self.ntype_mlp)
+        reset(self.edge_mlp)
+        reset(self.node_mlp)
+        reset(self.mi_edge)
+        reset(self.mi_node)
+        reset(self.attn_mlp)
+
     def message(
             self,
             x_j: Tensor,
@@ -361,14 +360,31 @@ class TGA(torch.nn.Module):
         graphs = self.l1(**graphs)
         graphs = self.l2(**graphs)
         h_node = list(graphs.values())[0].x[:, 6:]  # any graph will do
-        return h_node
+        edge_index_merged = []
+        edge_attr_merged = []
+        for i, (name, graph) in enumerate(graphs.items()):
+            if graph.num_edges != 0:
+                edge_index_merged.append(graph.edge_index)
+                edge_attr_merged.append(graph.edge_attr)
+        edge_index_merged = torch.cat(edge_index_merged, dim=1)
+        edge_attr_merged = torch.cat(edge_attr_merged, dim=0)
+        merged_g = Data(x=h_node, edge_index=edge_index_merged, edge_attr=edge_attr_merged)
+        return merged_g
 
 
 class Policy(torch.nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
 
-        self.mlp = None
+        self.mlp = MLP(
+            num_layers=3,
+            in_chnl=32 + 32 + 32,
+            hidden_chnl=128,
+            out_chnl=1
+        )
+
+    def forward(self, feasible_op_id, h_node, h_edge):
+        pass
 
 
 if __name__ == '__main__':
@@ -415,6 +431,6 @@ if __name__ == '__main__':
 
     # test TGA net
     tga = TGA().to(dev)
-    h = tga(**input_graphs)
-    grad = torch.autograd.grad(h.mean(), [param for param in tga.parameters()])
+    g = tga(**input_graphs)
+    grad = torch.autograd.grad(g.x.mean(), [param for param in tga.parameters()])
 
