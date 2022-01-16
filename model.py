@@ -166,7 +166,7 @@ class MLP(torch.nn.Module):
     def __init__(self,
                  num_layers=2,
                  in_chnl=8,
-                 hidden_chnl=256,
+                 hidden_chnl=32,
                  out_chnl=8):
         super(MLP, self).__init__()
 
@@ -215,20 +215,36 @@ class MI(torch.nn.Module):
 class TGA_layer(MessagePassing):
     def __init__(
             self,
+            # graphs parameters
+            node_feature_num=11,
+            k_dim=6,
+            edge_feature_num=1,
+            ## mlps parameters
+            # layer
             etype_mlp_layer=1,
             edge_mlp_layer=2,
             attn_mlp_layer=2,
+            ntype_mlp_layer=1,
+            node_mlp_layer=2,
+            # in dim
             etype_mlp_in_chnl=6,
             edge_mlp_in_chnl=32,
             attn_mlp_in_chnl=32,
+            ntype_mlp_in_chnl=6,
+            # hidden dim
             etype_mlp_hidden_chnl=32,
             edge_mlp_hidden_chnl=32,
             attn_mlp_hidden_chnl=32,
+            ntype_mlp_hidden_chnl=32,
+            node_mlp_hidden_chnl=32,
+            # out dim
             etype_mlp_out_chnl=32,
             edge_mlp_out_chnl=32,
             attn_mlp_our_chnl=1,
-            node_feature_num=11,
-            edge_feature_num=1
+            ntype_mlp_out_chnl=32,
+            node_mlp_out_chnl=32,
+            # MIs parameters
+            out_dim_mi_node=32
     ):
         super(TGA_layer, self).__init__(node_dim=0, aggr='add')
 
@@ -239,6 +255,13 @@ class TGA_layer(MessagePassing):
             out_chnl=etype_mlp_out_chnl
         )
 
+        self.ntype_mlp = MLP(
+            num_layers=ntype_mlp_layer,
+            in_chnl=ntype_mlp_in_chnl,
+            hidden_chnl=ntype_mlp_hidden_chnl,
+            out_chnl=ntype_mlp_out_chnl
+        )
+
         self.edge_mlp = MLP(
             num_layers=edge_mlp_layer,
             in_chnl=edge_mlp_in_chnl,
@@ -246,10 +269,23 @@ class TGA_layer(MessagePassing):
             out_chnl=edge_mlp_out_chnl
         )
 
-        self.MI = MI(
+        self.node_mlp = MLP(
+            num_layers=node_mlp_layer,
+            in_chnl=node_feature_num + out_dim_mi_node,
+            hidden_chnl=node_mlp_hidden_chnl,
+            out_chnl=node_mlp_out_chnl
+        )
+
+        self.mi_edge = MI(
             ctx_size=etype_mlp_out_chnl,
             input_size=node_feature_num * 2 + edge_feature_num,
-            output_size=32
+            output_size=edge_mlp_in_chnl
+        )
+
+        self.mi_node = MI(
+            ctx_size=ntype_mlp_out_chnl,
+            input_size=32,
+            output_size=out_dim_mi_node
         )
 
         self.attn_mlp = MLP(
@@ -273,28 +309,51 @@ class TGA_layer(MessagePassing):
         h_i, h_j = x_i[:, 6:], x_j[:, 6:]
 
         c_j = self.etype_mlp(k_j)
-        u_j = self.MI(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
+        u_j = self.mi_edge(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
 
         h_j_prime = self.edge_mlp(u_j)
         z_j = self.attn_mlp(u_j).squeeze()
-        alpha_j = softmax(z_j, index, ptr, size_i)
+        alpha_j = pyg_softmax(z_j, index, ptr, size_i)
         return h_j_prime * alpha_j.unsqueeze(-1)
 
     def forward(self, **graphs):
         embeddings = []
         for name, graph in graphs.items():
-            if graph.num_edges != 0:
+            if graph.num_edges != 0:  # type k has edges
                 # nodes with no neighbourhood get embedding = 0
                 embedding = self.propagate(edge_index=graph.edge_index, x=graph.x, edge_attr=graph.edge_attr)
                 embeddings.append(embedding)
-        merged_by_sum = torch.stack(embeddings).sum(dim=0)
+        node_h_merged_by_sum = torch.stack(embeddings).sum(dim=0)
+
+        x_i = graphs['pyg_assigned_agent'].x  # any graph will do
+        h_i = x_i[:, 6:]
+        k_i = x_i[:, :6]
+        c_i = self.ntype_mlp(k_i)
+        u_i = self.mi_node(node_h_merged_by_sum, c_i)
+        h_i_prime = self.node_mlp(torch.cat([h_i, u_i], dim=1))
+
+        # grad = torch.autograd.grad(h_i_prime.mean(), [param for param in self.parameters()])
 
         new_graphs = {}
         for name, graph in graphs.items():
-            new_graphs[name] = Data(x=merged_by_sum, edge_index=graph.edge_index).to(graph.x.device)
+            x_new_graph = torch.cat([graph.x[:, :6], h_i_prime], dim=1)
+            new_graphs[name] = Data(x=x_new_graph, edge_index=graph.edge_index, edge_attr=graph.edge_attr).to(graph.x.device)
 
         return new_graphs
 
+
+class TGA(torch.nn.Module):
+    def __init__(self):
+        super(TGA, self).__init__()
+
+        self.l1 = TGA_layer()
+        self.l2 = TGA_layer( node_feature_num=32)
+
+    def forward(self, **graphs):
+        graphs = self.l1(**graphs)
+        graphs = self.l2(**graphs)
+        h_node = list(graphs.values())[0].x[:, 6:]  # any graph will do
+        return h_node
 
 
 if __name__ == '__main__':
@@ -302,8 +361,8 @@ if __name__ == '__main__':
     np.random.seed(1)
     torch.manual_seed(1)
 
-    # dev = 'cuda' if torch.cuda.is_available() else 'cpu'
-    dev = 'cpu'
+    dev = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # dev = 'cpu'
 
     s = Simulator(3, 3, verbose=False)
     print(s.machine_matrix)
@@ -320,7 +379,7 @@ if __name__ == '__main__':
     y = mi(x, ctx)
     # print(y.shape)
 
-    tgae = TGA_layer().to(dev)
+    tgae_l1 = TGA_layer().to(dev)
     input_graphs = {
         'pyg_assigned_agent': pyg_assigned_agent,
         'pyg_unassigned_agent': pyg_unassigned_agent,
@@ -329,4 +388,17 @@ if __name__ == '__main__':
         'pyg_unprocessable_task': pyg_unprocessable_task,
         'pyg_finished_task': pyg_finished_task
     }
-    tgae(**input_graphs)
+    out_graphs = tgae_l1(**input_graphs)
+    # print(out_graphs)
+
+    tgae_l2 = TGA_layer(
+        node_feature_num=32,
+    ).to(dev)
+    out_graphs = tgae_l2(**out_graphs)
+    # print(out_graphs)
+
+    # test TGA net
+    tga = TGA().to(dev)
+    h = tga(**input_graphs)
+    grad = torch.autograd.grad(h.mean(), [param for param in tga.parameters()])
+
