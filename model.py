@@ -383,8 +383,28 @@ class Policy(torch.nn.Module):
             out_chnl=1
         )
 
-    def forward(self, feasible_op_id, h_node, h_edge):
-        pass
+    def forward(self, idle_machine, doable_op_id, embedded_g):
+        edge_index_np = embedded_g.edge_index.cpu().numpy()
+        idle_machine_flattened = np.array(idle_machine).repeat(repeats=[len(doable_ops_m) for doable_ops_m in doable_op_id])
+        doable_op_id_flattened = np.array([op for ops_m in doable_op_id for op in ops_m])
+        op_machine_pair = np.stack([doable_op_id_flattened, idle_machine_flattened])
+        find_op = np.isin(edge_index_np[0], op_machine_pair[0])
+        find_machine = np.isin(edge_index_np[1], op_machine_pair[1])
+        which_edge = np.where(np.logical_and(find_op, find_machine))[0]
+        # isin fn disturb the order of idle_machine_id and doable_op_id, we need rearrange op-machine pair
+        _op_machine_pair_rearrange = edge_index_np[:, which_edge]
+
+        h_i = embedded_g.x[_op_machine_pair_rearrange[1]]
+        h_j = embedded_g.x[_op_machine_pair_rearrange[0]]
+        h_ij = embedded_g.edge_attr[which_edge]
+
+        pi = softmax(self.mlp(torch.cat([h_i, h_j, h_ij], dim=1)), dim=0).squeeze()
+        dist = Categorical(probs=pi)
+        sampled_op_id = dist.sample()
+        sampled_op = _op_machine_pair_rearrange[0][sampled_op_id.item()]
+        log_prob = dist.log_prob(sampled_op_id)
+
+        return sampled_op, log_prob
 
 
 if __name__ == '__main__':
@@ -432,5 +452,10 @@ if __name__ == '__main__':
     # test TGA net
     tga = TGA().to(dev)
     g = tga(**input_graphs)
-    grad = torch.autograd.grad(g.x.mean(), [param for param in tga.parameters()])
+    # grad = torch.autograd.grad(g.x.mean(), [param for param in tga.parameters()])
+
+    # test policy
+    policy = Policy().to(dev)
+    op, log_p = policy([0, 2], [[9], [3, 6]], g)
+    grad = torch.autograd.grad(log_p.mean(), [param for param in tga.parameters()])
 

@@ -34,7 +34,10 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
-            feasible_op_id = [op_id + s.num_machine for op_id in s.get_doable_ops_in_list()]
+            idle_machine_and_its_doable_ops = s.get_doable_ops_in_dict()
+            idle_machine, doable_op = list(idle_machine_and_its_doable_ops.keys()), list(idle_machine_and_its_doable_ops.values())
+            idle_machine = [idx - 1 for idx in idle_machine]
+            doable_op = [idx + s.num_machine for idx in doable_op]
             nx_to_pyg(g, dev)
             if embedding_net is not None and \
                     policy_net is not None and \
