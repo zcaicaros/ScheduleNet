@@ -61,7 +61,7 @@ if __name__ == "__main__":
     tga = TGA().to(dev)
     policy = Policy().to(dev)
 
-    setting = 'm=5'  # 'm=5', 'j=30', 'free_for_all'
+    setting = 'j=30'  # 'm=5', 'j=30', 'free_for_all'
 
     if setting == 'm=5':
         j = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
