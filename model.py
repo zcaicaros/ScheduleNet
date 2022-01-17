@@ -427,8 +427,6 @@ if __name__ == '__main__':
     # dev = 'cpu'
 
     s = Simulator(3, 3, verbose=False)
-    print(s.machine_matrix)
-    print(s.processing_time_matrix)
     s.reset()
 
     g, r, done = s.observe()
