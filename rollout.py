@@ -75,7 +75,7 @@ if __name__ == "__main__":
     save_dir = 'plt/ScheduleNet_complexity_{}_reimplement.npy'.format(setting)
 
     print('Warm start...')
-    for p_m, p_j in zip([3], [3]):  # select problem size
+    for p_m, p_j in zip([5], [5]):  # select problem size
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
         _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=False)
 
