@@ -3,19 +3,12 @@ from semiMDP.simulators import Simulator
 import random
 import numpy
 import time
-from model import nx_to_pyg
+from model import nx_to_pyg, TGA, Policy
 
 
-def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbose=True):
+def rollout(s, dev, embedding_net=None, policy_net=None, verbose=True):
 
     # print(s.machine_matrix)
-
-    if embedding_net is not None and \
-            policy_net is not None and \
-            critic_net is not None:
-        embedding_net.to(dev)
-        policy_net.to(dev)
-        critic_net.to(dev)
 
     s.reset()
     done = False
@@ -34,15 +27,17 @@ def rollout(s, dev, embedding_net=None, policy_net=None, critic_net=None, verbos
             if done:
                 break  # env rollout finish
             g, r, done = s.observe(return_doable=True)
-            idle_machine_and_its_doable_ops = s.get_doable_ops_in_dict()
-            idle_machine, doable_op = list(idle_machine_and_its_doable_ops.keys()), list(idle_machine_and_its_doable_ops.values())
-            idle_machine = [idx - 1 for idx in idle_machine]
-            doable_op = [idx + s.num_machine for idx in doable_op]
-            nx_to_pyg(g, dev)
             if embedding_net is not None and \
-                    policy_net is not None and \
-                    critic_net is not None:  # network forward goes here
-                pass
+                    policy_net is not None:  # network forward goes here
+                idle_machine_and_its_doable_ops = s.get_doable_ops_in_dict()
+                idle_machine, doable_op = list(idle_machine_and_its_doable_ops.keys()), list(idle_machine_and_its_doable_ops.values())
+                idle_machine = [idx - 1 for idx in idle_machine]
+                doable_op = [[idx + s.num_machine for idx in ops_m] for ops_m in doable_op]
+                input_graphs = nx_to_pyg(g, dev)
+                embedded_g = tga(**input_graphs)
+                op_id, _ = policy(idle_machine, doable_op, embedded_g)
+                s.transit(op_id - s.num_machine)
+                p_list.append(op_id)
             else:
                 op_id = s.transit()
                 p_list.append(op_id)
@@ -60,30 +55,36 @@ if __name__ == "__main__":
     numpy.random.seed(1)
     torch.manual_seed(1)
 
-    # j = [5+5*i for i in range(6)]
-    # m = [5 for _ in range(len(j))]
+    dev = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # dev = 'cpu'
 
-    # m = [5+5*i for i in range(6)]
-    # j = [30 for _ in range(len(m))]
+    tga = TGA().to(dev)
+    policy = Policy().to(dev)
 
-    m = [30]
-    j = [30]
+    setting = 'm=5'  # 'm=5', 'j=30', 'free_for_all'
+
+    if setting == 'm=5':
+        j = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+        m = [5 for _ in range(len(j))]
+    elif setting == 'j=30':
+        m = [5, 10, 15, 20, 25, 30]
+        j = [30 for _ in range(len(m))]
+    else:
+        m = [5]
+        j = [30]
+    save_dir = 'plt/RL-GNN_complexity_{}_reimplement.npy'.format(setting)
 
     print('Warm start...')
-    for p_m, p_j in zip([3], [3]):  # select problem size
-        dev = 'cuda' if torch.cuda.is_available() else 'cpu'
-        # dev = 'cpu'
+    for p_m, p_j in zip([10], [10]):  # select problem size
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
-        _, t, _ = rollout(s, dev, verbose=False)
-        # s.draw_gantt_chart('./gantt_chart.html', 'rnd', max_x=s.global_time+5)
-    '''times = []
+        _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=False)
+        
+    times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
-        dev = 'cuda' if torch.cuda.is_available() else 'cpu'
-        # dev = 'cpu'
         s = Simulator(p_m, p_j, verbose=False)
-        _, t, _ = rollout(s, dev)
-        times.append(t)'''
+        _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=False)
+        times.append(t)
 
-    # print(times)
+    print(times)
 

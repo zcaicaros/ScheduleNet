@@ -147,7 +147,16 @@ def nx_to_pyg(g, dev):
     pyg_unprocessable_task.to(dev)
     pyg_finished_task.to(dev)
 
-    return pyg_assigned_agent, pyg_unassigned_agent, pyg_assigned_task, pyg_processable_task, pyg_unprocessable_task, pyg_finished_task
+    input_graphs = {
+        'pyg_assigned_agent': pyg_assigned_agent,
+        'pyg_unassigned_agent': pyg_unassigned_agent,
+        'pyg_assigned_task': pyg_assigned_task,
+        'pyg_processable_task': pyg_processable_task,
+        'pyg_unprocessable_task': pyg_unprocessable_task,
+        'pyg_finished_task': pyg_finished_task
+    }
+
+    return input_graphs
 
 
 class MLP(torch.nn.Module):
@@ -311,7 +320,6 @@ class TGA_layer(MessagePassing):
 
         c_j = self.etype_mlp(k_j)
         u_j = self.mi_edge(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
-
         h_j_prime = self.edge_mlp(u_j)
         self.edge_h_updated.append(h_j_prime)
         z_j = self.attn_mlp(u_j).squeeze()
@@ -319,6 +327,7 @@ class TGA_layer(MessagePassing):
         return h_j_prime * alpha_j.unsqueeze(-1)
 
     def forward(self, **graphs):
+        self.edge_h_updated = []
         embeddings = []
         for name, graph in graphs.items():
             if graph.num_edges != 0:  # type k has edges
@@ -422,7 +431,7 @@ if __name__ == '__main__':
 
     g, r, done = s.observe()
 
-    pyg_assigned_agent, pyg_unassigned_agent, pyg_assigned_task, pyg_processable_task, pyg_unprocessable_task, pyg_finished_task = nx_to_pyg(g, dev)
+    input_graphs = nx_to_pyg(g, dev)
 
     ctx = torch.rand(size=[3, 2])
     x = torch.rand(size=[3, 4])
@@ -430,14 +439,6 @@ if __name__ == '__main__':
     y = mi(x, ctx)
 
     tgae_l1 = TGA_layer().to(dev)
-    input_graphs = {
-        'pyg_assigned_agent': pyg_assigned_agent,
-        'pyg_unassigned_agent': pyg_unassigned_agent,
-        'pyg_assigned_task': pyg_assigned_task,
-        'pyg_processable_task': pyg_processable_task,
-        'pyg_unprocessable_task': pyg_unprocessable_task,
-        'pyg_finished_task': pyg_finished_task
-    }
     out_graphs = tgae_l1(**input_graphs)
     # print(out_graphs)
 
