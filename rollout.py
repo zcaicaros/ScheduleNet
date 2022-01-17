@@ -61,7 +61,7 @@ if __name__ == "__main__":
     tga = TGA().to(dev)
     policy = Policy().to(dev)
 
-    setting = 'm=5'  # 'm=5', 'j=30', 'free_for_all'
+    setting = 'j=30'  # 'm=5', 'j=30', 'free_for_all'
 
     if setting == 'm=5':
         j = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
@@ -75,16 +75,16 @@ if __name__ == "__main__":
     save_dir = 'plt/RL-GNN_complexity_{}_reimplement.npy'.format(setting)
 
     print('Warm start...')
-    for p_m, p_j in zip([10], [10]):  # select problem size
+    for p_m, p_j in zip([3], [3]):  # select problem size
         s = Simulator(p_m, p_j, verbose=False, detach_done=True)
         _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=False)
-        
+
     times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
         s = Simulator(p_m, p_j, verbose=False)
-        _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=False)
+        _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=True)
         times.append(t)
 
-    print(times)
+    numpy.save(save_dir, numpy.array(times))
 
