@@ -322,7 +322,7 @@ class TGA_layer(MessagePassing):
         u_j = self.mi_edge(x=torch.cat([h_i, h_j, edge_attr], dim=1), z=c_j)
         h_j_prime = self.edge_mlp(u_j)
         self.edge_h_updated.append(h_j_prime)
-        z_j = self.attn_mlp(u_j).squeeze()
+        z_j = self.attn_mlp(u_j).view(-1)
         alpha_j = pyg_softmax(z_j, index, ptr, size_i)
         return h_j_prime * alpha_j.unsqueeze(-1)
 
