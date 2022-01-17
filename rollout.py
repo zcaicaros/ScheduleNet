@@ -8,8 +8,6 @@ from model import nx_to_pyg, TGA, Policy
 
 def rollout(s, dev, embedding_net=None, policy_net=None, verbose=True):
 
-    # print(s.machine_matrix)
-
     s.reset()
     done = False
 
