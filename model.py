@@ -2,7 +2,7 @@ from semiMDP.simulators import Simulator
 import torch
 import random
 import numpy as np
-from torch.nn.functional import relu, softmax
+from torch.nn.functional import softmax
 from torch import Tensor
 from torch_geometric.data import Data
 from torch_geometric.nn.conv import MessagePassing
@@ -364,10 +364,12 @@ class TGA(torch.nn.Module):
 
         self.l1 = TGA_layer()
         self.l2 = TGA_layer(node_feature_num=32, edge_feature_num=32)
+        self.l3 = TGA_layer(node_feature_num=32, edge_feature_num=32)
 
     def forward(self, **graphs):
         graphs = self.l1(**graphs)
         graphs = self.l2(**graphs)
+        graphs = self.l3(**graphs)
         h_node = list(graphs.values())[0].x[:, 6:]  # any graph will do
         edge_index_merged = []
         edge_attr_merged = []
@@ -459,4 +461,7 @@ if __name__ == '__main__':
     policy = Policy().to(dev)
     op, log_p = policy([0, 2], [[9], [3, 6]], g)
     grad = torch.autograd.grad(log_p.mean(), [param for param in tga.parameters()])
+
+    count_parameters(tga)
+    count_parameters(policy)
 
