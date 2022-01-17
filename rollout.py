@@ -72,7 +72,7 @@ if __name__ == "__main__":
     else:
         m = [5]
         j = [30]
-    save_dir = 'plt/RL-GNN_complexity_{}_reimplement.npy'.format(setting)
+    save_dir = 'plt/ScheduleNet_complexity_{}_reimplement.npy'.format(setting)
 
     print('Warm start...')
     for p_m, p_j in zip([3], [3]):  # select problem size
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
-        s = Simulator(p_m, p_j, verbose=False)
+        s = Simulator(p_m, p_j, verbose=False, detach_done=True)
         _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=True)
         times.append(t)
 
