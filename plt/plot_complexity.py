@@ -2,13 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-fixed = 'm=5'  # 'j=30', 'm=5'
+fixed = 'm=10'  # 'j=40', 'm=10'
 
 datas = [
-    'RL-GNN_complexity_fixed_{}.npy'.format(fixed),
-    'RL-GNN_complexity_fixed_{}_reimplement.npy'.format(fixed),
-    'L2D_complexity_fixed_{}.npy'.format(fixed),
-    'L2S_complexity_fixed_{}_[500].npy'.format(fixed),
+    'RL-GNN_complexity_{}_reimplement.npy'.format(fixed),
+    'L2S_complexity_{}_[500].npy'.format(fixed),
     'ScheduleNet_complexity_{}_reimplement.npy'.format(fixed),
 ]
 
@@ -16,7 +14,7 @@ times_for_plot = []
 
 for data in datas:
     times_for_plot.append(np.load(data).reshape(-1))
-x_labels = [str(5+5*i) for i in range(times_for_plot[1].shape[0])]
+x_labels = [str(10+5*i) for i in range(times_for_plot[1].shape[0])]
 
 # plot parameters
 x_label_scale = 15
@@ -28,11 +26,9 @@ save = True
 save_file_type = '.png'
 
 
-obj1 = times_for_plot[0]  # RL-GNN
-obj2 = times_for_plot[1]  # RL-GNN Reimplement
-# obj3 = times_for_plot[2]  # L2D
-obj4 = times_for_plot[3]  # ours-500
-obj5 = times_for_plot[4]  # ScheduleNet
+obj0 = times_for_plot[0]  # RL-GNN Reimplement
+obj1 = times_for_plot[1]  # ours-500
+obj2 = times_for_plot[2]  # ScheduleNet
 
 # plotting...
 plt.figure(figsize=(5.3, 5))
@@ -44,11 +40,9 @@ elif fixed == 'j=30':
 plt.ylabel('Seconds', {'size': y_label_scale})
 plt.grid()
 x = np.array(x_labels)
-plt.plot(x[:obj1.shape[0]], obj1, color='tab:green', marker="o", label='RL-GNN')
-plt.plot(x, obj2, color='tab:red', marker="s", label='RL-GNN-Re')
-# plt.plot(x, obj3, color='tab:brown', linestyle="--", marker="v", label='L2D')
-plt.plot(x, obj4, color='tab:blue', linestyle="--", marker="v", label='Ours-500')
-plt.plot(x, obj5, color='tab:brown', linestyle="--", marker="*", label='ScheduleNet')
+plt.plot(x, obj0, color='tab:red', marker="s", label='RL-GNN-Re')
+plt.plot(x, obj1, color='tab:blue', linestyle="--", marker="v", label='Ours-500')
+plt.plot(x, obj2, color='tab:brown', linestyle="--", marker="*", label='ScheduleNet')
 
 plt.tight_layout()
 plt.legend(fontsize=anchor_text_size)
