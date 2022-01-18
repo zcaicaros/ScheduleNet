@@ -59,7 +59,7 @@ if __name__ == "__main__":
     tga = TGA().to(dev)
     policy = Policy().to(dev)
 
-    setting = 'j=40'  # 'm=10', 'j=40', 'free_for_all'
+    setting = 'free_for_all'  # 'm=10', 'j=40', 'free_for_all'
 
     if setting == 'm=10':
         j = [10, 15, 20, 25, 30, 35, 40]
@@ -68,8 +68,8 @@ if __name__ == "__main__":
         m = [10, 15, 20, 25, 30, 35, 40]
         j = [40 for _ in range(len(m))]
     else:
-        m = [5]
-        j = [30]
+        m = [15, 15, 20, 15, 20, 15, 20, 20]
+        j = [15, 20, 20, 30, 30, 50, 50, 100]
     save_dir = 'plt/ScheduleNet_complexity_{}_reimplement.npy'.format(setting)
 
     print('Warm start...')
@@ -80,9 +80,9 @@ if __name__ == "__main__":
     times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
-        s = Simulator(p_m, p_j, verbose=False, detach_done=True)
+        s = Simulator(p_m, p_j, verbose=False, detach_done=False)
         _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=True)
         times.append(t)
 
-    numpy.save(save_dir, numpy.array(times))
+    # numpy.save(save_dir, numpy.array(times))
 

@@ -40,9 +40,9 @@ elif fixed == 'j=30':
 plt.ylabel('Seconds', {'size': y_label_scale})
 plt.grid()
 x = np.array(x_labels)
-plt.plot(x, obj0, color='tab:red', marker="s", label='RL-GNN-Re')
+plt.plot(x, obj0, color='tab:red', marker="s", label='RL-GNN(re)')
 plt.plot(x, obj1, color='tab:blue', linestyle="--", marker="v", label='Ours-500')
-plt.plot(x, obj2, color='tab:brown', linestyle="--", marker="*", label='ScheduleNet')
+plt.plot(x, obj2, color='tab:brown', linestyle="--", marker="*", label='ScheduleNet(re)')
 
 plt.tight_layout()
 plt.legend(fontsize=anchor_text_size)
