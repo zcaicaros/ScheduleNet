@@ -107,7 +107,6 @@ class MachineManager:
             _x_machine['waiting'] = int(m.wait_for_delayed())
             _x_machine['processable'] = 0  # flag for operation node
             _x_machine['accessible'] = 0  # flag for operation node
-            # features = -1 for machine node
             _x_machine['task_wait_time'] = m.delayed_op.wait_time if m.delayed_op is not None else -1
             _x_machine['task_processing_time'] = m.current_op.processing_time if m.current_op is not None else -1
             _x_machine['time_to_complete'] = m.remaining_time
