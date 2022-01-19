@@ -108,11 +108,11 @@ class MachineManager:
             _x_machine['processable'] = 0  # flag for operation node
             _x_machine['accessible'] = 0  # flag for operation node
             # features = -1 for machine node
-            _x_machine['task_wait_time'] = -1
-            _x_machine['task_processing_time'] = -1
+            _x_machine['task_wait_time'] = m.delayed_op.wait_time if m.delayed_op is not None else -1
+            _x_machine['task_processing_time'] = m.current_op.processing_time if m.current_op is not None else -1
             _x_machine['time_to_complete'] = m.remaining_time
             _x_machine['remain_ops'] = len(m.remain_ops)
-            _x_machine['job_completion_ratio'] = -1
+            _x_machine['job_completion_ratio'] = m.current_op.complete_ratio if m.current_op is not None else -1
             # node type
             _x_machine['node_type'] = 'assigned_agent' if _x_machine['assigned'] == 1 else 'unassigned_agent'
             g.add_node(m_id - 1, **_x_machine)  # machine id from 0
