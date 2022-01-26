@@ -59,7 +59,8 @@ if __name__ == "__main__":
     tga = TGA().to(dev)
     policy = Policy().to(dev)
 
-    setting = 'free_for_all'  # 'm=10', 'j=40', 'free_for_all'
+    setting = 'm=10'  # 'm=10', 'j=40', 'free_for_all'
+    detach = True
 
     if setting == 'm=10':
         j = [10, 15, 20, 25, 30, 35, 40]
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         # m = [15, 15, 20, 15, 20, 15, 20, 20, 10, 15, 6, 10, 5]
         j = [10, 15, 20, 10, 15, 20, 30, 15, 20, 20, 50, 10, 20]
         m = [5, 5, 5, 10, 10, 10, 10, 15, 10, 15, 10, 10, 20]
-    save_dir = 'plt/ScheduleNet_complexity_{}_reimplement.npy'.format(setting)
+    save_dir = 'plt/ScheduleNet_complexity_{}_reimplement_detach.npy'.format(setting) if detach else 'plt/ScheduleNet_complexity_{}_reimplement.npy'
 
     print('Warm start...')
     for p_m, p_j in zip([5], [5]):  # select problem size
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     times = []
     for p_m, p_j in zip(m, j):  # select problem size
         print('Problem size = (m={}, j={})'.format(p_m, p_j))
-        s = Simulator(p_m, p_j, verbose=False, detach_done=True)
+        s = Simulator(p_m, p_j, verbose=False, detach_done=detach)
         _, t, _ = rollout(s, dev, embedding_net=tga, policy_net=policy, verbose=True)
         times.append(t)
 

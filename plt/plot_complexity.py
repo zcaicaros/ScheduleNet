@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-fixed = 'm=10'  # 'j=40', 'm=10'
+fixed = 'j=40'  # 'j=40', 'm=10'
 
 datas = [
     'RL-GNN_complexity_{}_reimplement.npy'.format(fixed),
     'L2S_complexity_{}_[500].npy'.format(fixed),
-    'ScheduleNet_complexity_{}_reimplement.npy'.format(fixed),
+    'ScheduleNet_complexity_{}_reimplement_detach.npy'.format(fixed),
 ]
 
 times_for_plot = []
