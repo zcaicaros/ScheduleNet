@@ -7,7 +7,7 @@ fixed = 'j=40'  # 'j=40', 'm=10'
 datas = [
     'RL-GNN_complexity_{}_reimplement.npy'.format(fixed),
     'L2S_complexity_{}_[500].npy'.format(fixed),
-    'ScheduleNet_complexity_{}_reimplement_detach.npy'.format(fixed),
+    'ScheduleNet_complexity_{}_reimplement.npy'.format(fixed),
 ]
 
 times_for_plot = []
@@ -23,7 +23,7 @@ anchor_text_size = 15
 title_size = 15
 show = False
 save = True
-save_file_type = '.png'
+save_file_type = '.pdf'
 
 
 obj0 = times_for_plot[0]  # RL-GNN Reimplement
@@ -37,12 +37,16 @@ if fixed == 'm=5':
 elif fixed == 'j=30':
     plt.xlabel('Number of machines {}'.format(r'$m$'), {'size': x_label_scale})
 
-plt.ylabel('Seconds', {'size': y_label_scale})
+plt.ylabel('Average run time (seconds)', {'size': y_label_scale})
+if fixed == 'j=40':
+    plt.xlabel('Number of machines', {'size': x_label_scale})
+if fixed == 'm=10':
+    plt.xlabel('Number of jobs', {'size': x_label_scale})
 plt.grid()
 x = np.array(x_labels)
-plt.plot(x, obj0, color='tab:red', marker="s", label='RL-GNN(re)')
-plt.plot(x, obj1, color='tab:blue', linestyle="--", marker="v", label='Ours-500')
-plt.plot(x, obj2, color='tab:brown', linestyle="--", marker="*", label='ScheduleNet(re)')
+plt.plot(x, obj0, color='tab:red', marker="s", label='RL-GNN')
+plt.plot(x, obj2, color='tab:brown', marker="*", label='ScheduleNet')
+plt.plot(x, obj1, color='tab:blue', marker="v", label='Ours-500')
 
 plt.tight_layout()
 plt.legend(fontsize=anchor_text_size)
